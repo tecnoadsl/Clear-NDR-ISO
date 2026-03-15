@@ -56,6 +56,9 @@ services:
             - ingest.geoip.downloader.enabled=false
         volumes:
             - ${ELASTIC_DATAPATH:-elastic-data}:/usr/share/elasticsearch/data
+            - ${PWD}/containers-data/elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+        ports:
+            - "127.0.0.1:9200:9200"
         mem_limit: ${ELASTIC_MEMORY:-3G}
         ulimits:
             memlock:
@@ -86,19 +89,22 @@ services:
         depends_on:
             scirius:
                 condition: service_healthy #because we need to wait for scirius to populate ILM policy
+            redis:
+                condition: service_healthy
         restart: ${RESTART_MODE:-unless-stopped}
+        environment:
+            - LS_JAVA_OPTS=-Xms4g -Xmx4g
         healthcheck:
             test: ['CMD-SHELL', 'curl --silent --fail localhost:9600 || exit 1']
             interval: 30s
             timeout: 5s
             retries: 3
             start_period: 30s
-        mem_limit: ${LOGSTASH_MEMORY:-2G}
+        mem_limit: ${LOGSTASH_MEMORY:-6G}
         volumes:
-            - logstash-sincedb:/since.db
-            - ${PWD}/containers-data/suricata/logs:/var/log/suricata:ro
             - ${PWD}/containers-data/logstash/conf.d/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
             - ${PWD}/containers-data/logstash/templates/elasticsearch7-template.json:/usr/share/logstash/config/elasticsearch7-template.json
+            - ${PWD}/containers-data/logstash/logstash.yml:/usr/share/logstash/config/logstash.yml
         networks:
             network:
 
@@ -106,7 +112,9 @@ services:
         container_name: suricata
         image: jasonish/suricata:master-amd64
         entrypoint: /etc/suricata/new_entrypoint.sh
-        restart: ${RESTART_MODE:-unless-stopped}
+        restart: "no"
+        profiles:
+            - disabled
         environment:
             - SURICATA_OPTIONS=${INTERFACES} -vvv --set sensor-name=suricata
         cap_add:
@@ -159,6 +167,7 @@ services:
             - suricata-rules:/rules
             - suricata-run:/var/run/suricata
             - ${PWD}/containers-data/suricata/logs:/var/log/suricata:ro
+            - ${PWD}/containers-data/scirius/header_right.html:/opt/scirius/rules/templates/rules/header_right.html:ro
         networks:
             network:
         depends_on:
@@ -168,10 +177,25 @@ services:
                 condition: service_healthy
             kibana:
                 condition: service_healthy
+    redis:
+        container_name: redis
+        image: redis:7-alpine
+        restart: ${RESTART_MODE:-unless-stopped}
+        command: ['redis-server', '--maxmemory', '12gb', '--maxmemory-policy', 'noeviction']
+        healthcheck:
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 10s
+            timeout: 3s
+            retries: 3
+        ports:
+            - "127.0.0.1:6379:6379"
+        networks:
+            network:
+
     evebox:
         container_name: evebox
         image: jasonish/evebox:master
-        command: ['-e', 'http://elasticsearch:9200']
+        command: ['-v', '-e', 'http://elasticsearch:9200', '--index', 'logstash-alert']
         restart: ${RESTART_MODE:-unless-stopped}
         environment:
             - EVEBOX_HTTP_TLS_ENABLED=false
@@ -267,3 +291,35 @@ services:
             retries: 5
         networks:
             network:
+
+    rtbh-manager:
+        container_name: rtbh-manager
+        build: /opt/rtbh-manager
+        restart: ${RESTART_MODE:-unless-stopped}
+        network_mode: host
+        cap_add:
+            - NET_ADMIN
+            - NET_RAW
+        healthcheck:
+            test: ['CMD-SHELL', 'curl --silent --fail http://localhost:8080/api/status || exit 1']
+            interval: 15s
+            timeout: 5s
+            retries: 3
+            start_period: 15s
+        volumes:
+            - /opt/rtbh-manager/data:/opt/rtbh-manager/data
+            - /opt/exabgp/exabgp.cmd:/opt/exabgp/exabgp.cmd:rw
+            - /opt/exabgp/exabgp.conf:/opt/exabgp/exabgp.conf:ro
+            - /usr/bin/cscli:/usr/bin/cscli:ro
+            - /etc/crowdsec:/etc/crowdsec:ro
+            - /var/lib/crowdsec:/var/lib/crowdsec:ro
+        environment:
+            - BGP_ROUTER_ID=172.31.252.2
+            - BGP_LOCAL_AS=65500
+            - BGP_PEER_IP=10.100.25.7
+            - BGP_PEER_AS=65500
+            - BGP_NEXTHOP=192.0.2.1
+            - BGP_COMMUNITY=65500:666
+            - REDIS_HOST=127.0.0.1
+            - REDIS_PORT=6379
+            - RTBH_DURATIONS=1,5,72

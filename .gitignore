@@ -1,2 +1,17 @@
 *~
 Stamus-Live-Build
+
+# Secrets & credentials
+docker/.env
+docker/containers-data/nginx/ssl/
+
+# Data & logs
+docker/containers-data/elasticsearch/
+docker/containers-data/suricata/logs/
+docker/containers-data/scirius/
+docker/tar_images/
+
+# Runtime
+*.pyc
+__pycache__/
+docker/containers-data/arkime/logs/
