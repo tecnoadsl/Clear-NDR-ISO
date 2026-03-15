@@ -1,0 +1,17 @@
+[Unit]
+Description=ExaBGP Flowspec BGP Speaker
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/exabgp
+ExecStartPre=/bin/bash -c 'rm -f /opt/exabgp/exabgp.pid /opt/exabgp/exabgp.cmd; mkfifo /opt/exabgp/exabgp.cmd; chmod 666 /opt/exabgp/exabgp.cmd'
+ExecStart=/usr/bin/python3 /opt/exabgp/run_exabgp.py /opt/exabgp/exabgp.conf
+StandardOutput=journal
+StandardError=journal
+ExecReload=/bin/kill -USR1 $MAINPID
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

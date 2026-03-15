@@ -1,0 +1,23 @@
+/opt/selksd/SELKS/docker/containers-data/suricata/logs/eve.json
+/opt/selksd/SELKS/docker/containers-data/suricata/logs/eve.*.json {
+    rotate 48
+    maxsize 1G
+    compress
+    missingok
+    notifempty
+    copytruncate
+    dateext
+    dateformat -%Y%m%d-%H%M
+}
+
+/opt/selksd/SELKS/docker/containers-data/suricata/logs/stats.log
+/opt/selksd/SELKS/docker/containers-data/suricata/logs/suricata.log
+/opt/selksd/SELKS/docker/containers-data/suricata/logs/fast.log {
+    daily
+    rotate 7
+    maxsize 200M
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
