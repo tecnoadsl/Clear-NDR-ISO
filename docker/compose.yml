@@ -101,6 +101,8 @@ services:
             retries: 3
             start_period: 30s
         mem_limit: ${LOGSTASH_MEMORY:-6G}
+        ports:
+            - "127.0.0.1:9600:9600"
         volumes:
             - ${PWD}/containers-data/logstash/conf.d/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
             - ${PWD}/containers-data/logstash/templates/elasticsearch7-template.json:/usr/share/logstash/config/elasticsearch7-template.json
@@ -297,6 +299,7 @@ services:
         build: /opt/rtbh-manager
         restart: ${RESTART_MODE:-unless-stopped}
         network_mode: host
+        pid: host
         cap_add:
             - NET_ADMIN
             - NET_RAW
@@ -313,6 +316,7 @@ services:
             - /usr/bin/cscli:/usr/bin/cscli:ro
             - /etc/crowdsec:/etc/crowdsec:ro
             - /var/lib/crowdsec:/var/lib/crowdsec:ro
+            - /var/run/suricata.pid:/var/run/suricata.pid:ro
         environment:
             - BGP_ROUTER_ID=172.31.252.2
             - BGP_LOCAL_AS=65500
